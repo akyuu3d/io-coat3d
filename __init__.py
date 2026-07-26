@@ -599,6 +599,13 @@ class SCENE_OT_export(bpy.types.Operator):
         try:
             if (bpy.context.selected_objects == []):
                 return {'FINISHED'}
+
+            apply_and_reload = coat3D.apply_modifiers_reload
+            if apply_and_reload:
+                if not bpy.data.filepath or bpy.data.is_dirty:
+                    self.report({'ERROR'}, "Please save your file before using 'Apply Modifiers & Reload'")
+                    return {'FINISHED'}
+
             else:
                 for objec in bpy.context.selected_objects:
                     if objec.type == 'MESH':
@@ -790,6 +797,9 @@ class SCENE_OT_export(bpy.types.Operator):
             if(len(bpy.context.selected_objects) > 1 and coat3D.type != 'vox'):
                 bpy.ops.object.transforms_to_deltas(mode='ROT')
 
+            if apply_and_reload:
+                bpy.ops.object.convert(target='MESH')
+
             if(coat3D.type == 'autopo'):
                 coat3D.bring_retopo = True
                 coat3D.bring_retopo_path = checkname
@@ -813,6 +823,14 @@ class SCENE_OT_export(bpy.types.Operator):
                 file.write(temp_string)
 
             file.close()
+
+            if apply_and_reload:
+                def _undo_changes():
+                    bpy.ops.ed.undo()
+                    return None
+                bpy.app.timers.register(_undo_changes, first_interval=0.5)
+                return {'FINISHED'}
+
             for idx, objekti in enumerate(bpy.context.selected_objects):
                 if objekti.type == 'MESH':
                     objekti.name = objekti.name[2:]
@@ -1482,6 +1500,8 @@ class SCENE_PT_Main(bpy.types.Panel):
             row.prop(coat3D,"type",text = "")
             row = layout.row()
             row.prop(coat3D, "export_collection", text="Collection")
+            row = layout.row()
+            row.prop(coat3D, "apply_modifiers_reload", text="Apply Modifiers & Reload")
             flow = layout.grid_flow(row_major=True, columns=0, even_columns=False, even_rows=False, align=True)
 
             row = layout.row()
@@ -1844,6 +1864,11 @@ class SceneCoat3D(PropertyGroup):
     exportmod: BoolProperty(
         name="Modifiers",
         description="Export modifiers",
+        default=False
+    )
+    apply_modifiers_reload: BoolProperty(
+        name="Apply Modifiers & Reload",
+        description="Apply all modifiers before export, then reload the file to restore the original state. One-way export only",
         default=False
     )
     importtextures: BoolProperty(
