@@ -24,7 +24,7 @@ bl_info = {
     "version": (5, 0, 0),
     "blender": (4, 2, 0),
     "location": "Scene > 3D-Coat Applink",
-    "description": "Transfer data between 3D-Coat/Blender",
+    "description": "Transfer data between 3D-Coat/Blender, edited 2026-07-27",
     "warning": "",
     "doc_url": "https://3dcoat.com/documentation/manual/getting-started/app-links/blender-applink/",
     "category": "Import-Export",
@@ -602,9 +602,11 @@ class SCENE_OT_export(bpy.types.Operator):
 
             apply_and_reload = coat3D.apply_modifiers_reload
             if apply_and_reload:
-                if not bpy.data.filepath or bpy.data.is_dirty:
-                    self.report({'ERROR'}, "Please save your file before using 'Apply Modifiers & Reload'")
+                if not bpy.data.filepath:
+                    self.report({'ERROR'}, "Please save your file at least once before using 'Apply Modifiers & Reload'")
                     return {'FINISHED'}
+                else:
+                    bpy.ops.wm.save_mainfile()
 
             else:
                 for objec in bpy.context.selected_objects:
