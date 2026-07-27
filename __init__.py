@@ -824,13 +824,6 @@ class SCENE_OT_export(bpy.types.Operator):
 
             file.close()
 
-            if apply_and_reload:
-                def _undo_changes():
-                    bpy.ops.ed.undo()
-                    return None
-                bpy.app.timers.register(_undo_changes, first_interval=0.5)
-                return {'FINISHED'}
-
             for idx, objekti in enumerate(bpy.context.selected_objects):
                 if objekti.type == 'MESH':
                     objekti.name = objekti.name[2:]
@@ -855,6 +848,63 @@ class SCENE_OT_export(bpy.types.Operator):
 
             scaleBackParents(scaled_objects)
             bpy.context.scene.render.engine = active_render
+
+            if apply_and_reload:
+                # Cache all the metadata that we just wrote to the meshes and objects
+                cached_metadata = []
+                for obj in bpy.context.selected_objects:
+                    if obj.type == 'MESH':
+                        cached_metadata.append({
+                            'name': obj.name,
+                            'applink_onlyone': obj.coat3D.applink_onlyone,
+                            'type': obj.coat3D.type,
+                            'applink_mesh': obj.coat3D.applink_mesh,
+                            'obj_mat': obj.coat3D.obj_mat,
+                            'applink_index': obj.coat3D.applink_index,
+                            'applink_firsttime': obj.coat3D.applink_firsttime,
+                            'applink_address': obj.coat3D.applink_address,
+                            'objecttime': obj.coat3D.objecttime,
+                            'applink_name': obj.coat3D.applink_name,
+                            'applink_scale': list(obj.coat3D.applink_scale),
+                            'retopo': obj.coat3D.retopo,
+                            'mesh_coat3D_name': obj.data.coat3D.name
+                        })
+                
+                active_obj_name = bpy.context.active_object.name if bpy.context.active_object else None
+                active_obj_applink_name = bpy.context.active_object.coat3D.applink_name if bpy.context.active_object else ''
+                active_obj_applink_address = bpy.context.active_object.coat3D.applink_address if bpy.context.active_object else ''
+
+                def _undo_changes():
+                    # Call undo to revert the applied modifiers/conversions
+                    bpy.ops.ed.undo()
+                    
+                    # Re-apply cached metadata to the objects after undo
+                    for data in cached_metadata:
+                        obj = bpy.data.objects.get(data['name'])
+                        if obj:
+                            obj.coat3D.applink_onlyone = data['applink_onlyone']
+                            obj.coat3D.type = data['type']
+                            obj.coat3D.applink_mesh = data['applink_mesh']
+                            obj.coat3D.obj_mat = data['obj_mat']
+                            obj.coat3D.applink_index = data['applink_index']
+                            obj.coat3D.applink_firsttime = data['applink_firsttime']
+                            obj.coat3D.applink_address = data['applink_address']
+                            obj.coat3D.objecttime = data['objecttime']
+                            obj.coat3D.applink_name = data['applink_name']
+                            obj.coat3D.applink_scale = data['applink_scale']
+                            obj.coat3D.retopo = data['retopo']
+                            if obj.data:
+                                obj.data.coat3D.name = data['mesh_coat3D_name']
+                                
+                    if active_obj_name:
+                        active_obj = bpy.data.objects.get(active_obj_name)
+                        if active_obj:
+                            active_obj.coat3D.applink_name = active_obj_applink_name
+                            active_obj.coat3D.applink_address = active_obj_applink_address
+                    return None
+
+                bpy.app.timers.register(_undo_changes, first_interval=0.5)
+
             return {'FINISHED'}
         finally:
             if use_collection:
